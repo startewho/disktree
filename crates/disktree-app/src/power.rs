@@ -31,13 +31,13 @@ impl PowerEfficiency {
         }
     }
 
-    pub const fn name(self) -> &'static str {
-        match self {
+    pub fn name(self) -> &'static str {
+        crate::i18n::tr(match self {
             Self::Miser => "Miser",
             Self::Balanced => "Balanced",
             Self::Aggressive => "Aggressive",
             Self::DrainMyBattery => "Drain My Battery",
-        }
+        })
     }
 
     pub fn parse(value: &str) -> Option<Self> {
@@ -91,16 +91,18 @@ impl PowerEfficiency {
 
 pub fn workers(count: usize) -> String {
     let unit = if count == 1 { "worker" } else { "workers" };
-    format!("{count} {unit}")
+    format!("{count} {}", crate::i18n::tr(unit))
 }
 
 pub fn cpu_threads() -> usize {
     std::thread::available_parallelism().map_or(1, usize::from)
 }
 
-/// Follow each desktop's user configuration location; never write beside
+/// Follow each desktop's per-user configuration location; never write beside
 /// the executable or scanned root. No home/config location means session-only.
-pub fn settings_path() -> Option<PathBuf> {
+///
+/// The language choice lives in the same directory, one file over.
+pub fn config_dir() -> Option<PathBuf> {
     let home = std::env::home_dir();
     let base = if cfg!(target_os = "macos") {
         home.map(|home| home.join("Library/Application Support"))
@@ -112,7 +114,11 @@ pub fn settings_path() -> Option<PathBuf> {
             .filter(|path| path.is_absolute())
             .or_else(|| home.map(|home| home.join(".config")))
     };
-    base.map(|base| base.join("disktree/power-efficiency"))
+    base.map(|base| base.join("disktree"))
+}
+
+pub fn settings_path() -> Option<PathBuf> {
+    config_dir().map(|dir| dir.join("power-efficiency"))
 }
 
 pub fn load(path: &Path) -> io::Result<PowerEfficiency> {

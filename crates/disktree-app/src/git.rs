@@ -30,21 +30,22 @@ impl GitState {
 
     /// One short line: `clean, no stash`, `3 changed, 1 stash, 2 unpushed`.
     pub fn summary(&self) -> String {
+        use crate::i18n::text;
         let mut parts = Vec::new();
         parts.push(match self.changed {
-            Some(0) => "clean".to_string(),
-            Some(count) => format!("{count} changed"),
-            None => "changes unknown".to_string(),
+            Some(0) => crate::i18n::tr("clean").to_string(),
+            Some(count) => text!("{} changed", count),
+            None => crate::i18n::tr("changes unknown").to_string(),
         });
         parts.push(match self.stashes {
-            0 => "no stash".to_string(),
-            1 => "1 stash".to_string(),
-            count => format!("{count} stashes"),
+            0 => crate::i18n::tr("no stash").to_string(),
+            1 => crate::i18n::tr("1 stash").to_string(),
+            count => text!("{} stashes", count),
         });
         match self.unpushed {
             Some(0) => {}
-            Some(count) => parts.push(format!("{count} unpushed")),
-            None => parts.push("no upstream".to_string()),
+            Some(count) => parts.push(text!("{} unpushed", count)),
+            None => parts.push(crate::i18n::tr("no upstream").to_string()),
         }
         parts.join(", ")
     }

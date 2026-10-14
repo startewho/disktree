@@ -14,6 +14,7 @@
 mod app_menu;
 mod appearance;
 mod git;
+mod i18n;
 mod marks;
 mod palette;
 mod power;
@@ -128,6 +129,11 @@ fn run() -> Result<()> {
     let root = args.root.clone();
     let depth = args.depth;
     let title_root = root.clone();
+
+    // The interface draws in the saved language, or the system's when nothing
+    // has been chosen. Set before the first window opens, so the first frame
+    // is already right.
+    i18n::set(i18n::saved().resolve());
 
     gpui_kit::application()
         .with_assets(gpui_kit::assets::Assets)

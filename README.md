@@ -163,6 +163,18 @@ The kinds come from directory names and a few shapes (a bare git repository,
 `target` beside a `Cargo.toml`). Some of the names are specific to one
 machine; see `crates/disktree-core/src/classify.rs`.
 
+### Language
+
+The interface opens in your system's language: English everywhere, and
+Chinese (简体中文) on a machine set to `zh`. The button beside Power
+Efficiency, showing the current choice, switches it — **Follow system**,
+**English** or **中文** — and the choice is saved for the next launch in
+`$XDG_CONFIG_HOME/disktree/language` (or `~/.config/disktree/language`,
+`~/Library/Application Support/disktree/language` on macOS,
+`%APPDATA%\disktree\language` on Windows). Delete that file to follow the
+system again. The macOS menu bar is built once at launch, so it follows the
+language the app started in.
+
 ### Marking
 
 Space, X, Enter and the arrows act on the tile under the mouse if the mouse

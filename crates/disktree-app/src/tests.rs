@@ -1844,3 +1844,48 @@ fn the_power_menu_offers_only_what_the_cpus_can_tell_apart(
     draw(cx);
     assert!(read(&view, cx, |app| app.power_menu.is_none()));
 }
+
+#[gpui_kit::test]
+fn the_language_menu_offers_every_choice_and_saves_the_one_picked(
+    cx: &mut TestAppContext,
+) {
+    use crate::i18n::Language;
+
+    cx.update(gpui_omarchy::init);
+    let temp = fixture();
+    let config = tempfile::tempdir().expect("config");
+    let path = config.path().join("language");
+    let (view, cx) = view_over(temp.path(), cx);
+    cx.simulate_resize(gpui_kit::size(px(900.), px(600.)));
+    update(&view, cx, |app, cx| {
+        app.language = Language::English;
+        app.language_settings_path = Some(path.clone());
+        app.toggle_language_menu(cx);
+    });
+    draw(cx);
+
+    // Every choice is offered, with the check on the one in force.
+    for language in Language::ALL {
+        cx.debug_bounds(language.key()).expect("row");
+    }
+    let check = cx.debug_bounds("language-check").expect("check");
+    let english = cx.debug_bounds(Language::English.key()).expect("row");
+    assert!(english.contains(&check.center()), "check on {check:?}");
+
+    // The arrows move the highlight among all three; Escape closes without
+    // choosing, so nothing is written.
+    press(cx, "down");
+    assert_eq!(read(&view, cx, |app| app.language_menu), Some(2));
+    press(cx, "escape");
+    assert!(read(&view, cx, |app| app.language_menu.is_none()));
+    assert_eq!(read(&view, cx, |app| app.language), Language::English);
+
+    // Choosing one applies it and saves it beside the power preset. English
+    // is chosen so the process-wide language stays English for the tests that
+    // assert on the interface's words.
+    update(&view, cx, |app, cx| app.set_language(Language::English, cx));
+    assert_eq!(crate::i18n::load(&path).expect("saved"), Language::English);
+    read(&view, cx, |app| {
+        assert!(app.notice.is_some(), "a notice is shown");
+    });
+}

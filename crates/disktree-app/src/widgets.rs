@@ -384,18 +384,19 @@ pub fn split_size(text: &str) -> (String, String) {
 /// How long ago a Unix time was, in the unit a person would use.
 pub fn ago(now: i64, then: i64) -> String {
     if then <= 0 {
-        return "unknown".to_string();
+        return crate::i18n::tr("unknown").to_string();
     }
     let seconds = (now - then).max(0);
-    let plural = |count: i64, unit: &str| {
+    let plural = |count: i64, unit: &'static str| {
+        let unit = crate::i18n::tr(unit);
         if count == 1 {
-            format!("1 {unit} ago")
+            crate::i18n::text!("1 {} ago", unit)
         } else {
-            format!("{count} {unit}s ago")
+            crate::i18n::text!("{} {}s ago", count, unit)
         }
     };
     match seconds {
-        0..60 => "just now".to_string(),
+        0..60 => crate::i18n::tr("just now").to_string(),
         60..3_600 => plural(seconds / 60, "minute"),
         3_600..86_400 => plural(seconds / 3_600, "hour"),
         86_400..5_184_000 => plural(seconds / 86_400, "day"),

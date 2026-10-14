@@ -121,6 +121,7 @@ and `cargo build --release` directly; CI runs the gate on both systems.
 | reading a whole NTFS drive from its file table | `crates/disktree-core/src/mft.rs` |
 | a key, a screen transition, a mark | `crates/disktree-app/src/state.rs` |
 | spacing, type and size | `crates/disktree-app/src/ui.rs` — tokens only, no `px` in layout |
+| a word a screen shows, or the language | `crates/disktree-app/src/i18n.rs` |
 | the mosaic's painting or labels | `crates/disktree-app/src/treemap_view.rs` |
 | layout of a screen | `crates/disktree-app/src/views.rs` |
 | colours derived from the theme | `crates/disktree-app/src/palette.rs` |

@@ -7,6 +7,8 @@
 
 use gpui_kit::{App, KeyBinding, Menu, MenuItem, SystemMenuType};
 
+use crate::i18n;
+
 pub use menu_actions::*;
 
 #[allow(
@@ -92,25 +94,28 @@ pub fn install(cx: &mut App) {
     ]);
     cx.set_menus([
         Menu::new("disktree").items([
-            MenuItem::os_submenu("Services", SystemMenuType::Services),
+            MenuItem::os_submenu(
+                i18n::tr("Services"),
+                SystemMenuType::Services,
+            ),
             MenuItem::separator(),
-            MenuItem::action("Hide disktree", Hide),
-            MenuItem::action("Hide Others", HideOthers),
-            MenuItem::action("Show All", ShowAll),
+            MenuItem::action(i18n::tr("Hide disktree"), Hide),
+            MenuItem::action(i18n::tr("Hide Others"), HideOthers),
+            MenuItem::action(i18n::tr("Show All"), ShowAll),
             MenuItem::separator(),
-            MenuItem::action("Quit disktree", Quit),
+            MenuItem::action(i18n::tr("Quit disktree"), Quit),
         ]),
-        Menu::new("File").items([
-            MenuItem::action("Open Folder\u{2026}", OpenFolder),
-            MenuItem::action("Show in Finder", ShowInFinder),
+        Menu::new(i18n::tr("File")).items([
+            MenuItem::action(i18n::tr("Open Folder…"), OpenFolder),
+            MenuItem::action(i18n::tr("Show in Finder"), ShowInFinder),
             MenuItem::separator(),
-            MenuItem::action("Rescan", Rescan),
+            MenuItem::action(i18n::tr("Rescan"), Rescan),
             MenuItem::separator(),
-            MenuItem::action("Close Window", CloseWindow),
+            MenuItem::action(i18n::tr("Close Window"), CloseWindow),
         ]),
-        Menu::new("Go").items([
-            MenuItem::action("Back", GoBack),
-            MenuItem::action("Forward", GoForward),
+        Menu::new(i18n::tr("Go")).items([
+            MenuItem::action(i18n::tr("Back"), GoBack),
+            MenuItem::action(i18n::tr("Forward"), GoForward),
         ]),
     ]);
 }

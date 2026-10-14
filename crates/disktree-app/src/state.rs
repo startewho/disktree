@@ -34,6 +34,7 @@ use gpui_omarchy::Status;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::git::GitState;
+use crate::i18n;
 
 use crate::marks::{Marks, display_path, is_hidden};
 use crate::treemap_view::{Mosaic, TileDeco};
@@ -336,6 +337,13 @@ pub struct Disktree {
     /// to toggle, not a press outside the menu that closes it first.
     pub power_hover: bool,
     pub cpu_threads: usize,
+    /// The interface language, and its menu: the saved choice, the row the
+    /// arrow keys are on as an index into [`crate::i18n::Language::ALL`], and
+    /// whether the pointer is on its button.
+    pub language: crate::i18n::Language,
+    pub language_menu: Option<usize>,
+    pub language_hover: bool,
+    pub language_settings_path: Option<PathBuf>,
     pub tree: Option<Arc<Node>>,
     pub scan: Option<ScanHandle>,
     pub scan_epoch: u64,
@@ -476,6 +484,10 @@ impl Disktree {
             power_menu: None,
             power_hover: false,
             cpu_threads: crate::power::cpu_threads(),
+            language: crate::i18n::saved(),
+            language_menu: None,
+            language_hover: false,
+            language_settings_path: crate::i18n::settings_path(),
             tree: None,
             scan: None,
             scan_epoch: 0,
@@ -833,21 +845,24 @@ impl Disktree {
         self.notice = Some(match self.power_settings_path.as_deref() {
             Some(path) => match crate::power::save(path, preset) {
                 Ok(()) => (
-                    format!("{label} from the next scan; r rescans now"),
+                    i18n::text!("{} from the next scan; r rescans now", label),
                     Status::Success,
                 ),
                 Err(error) => (
-                    format!(
-                        "{label} from the next scan, but it could not be \
-                         saved: {error}"
+                    i18n::text!(
+                        "{} from the next scan, but it could not be saved: \
+                         {}",
+                        label,
+                        error
                     ),
                     Status::Warning,
                 ),
             },
             None => (
-                format!(
-                    "{label} from the next scan; no settings directory to \
-                     save it in"
+                i18n::text!(
+                    "{} from the next scan; no settings directory to save \
+                     it in",
+                    label
                 ),
                 Status::Warning,
             ),
@@ -907,6 +922,93 @@ impl Disktree {
             "escape" => self.power_menu = None,
             _ => {
                 self.power_menu = None;
+                cx.notify();
+                return false;
+            }
+        }
+        cx.notify();
+        true
+    }
+
+    /// Choose the interface language: it applies on the next frame, and is
+    /// saved so the next run opens in it.
+    pub fn set_language(
+        &mut self,
+        language: crate::i18n::Language,
+        cx: &mut Context<'_, Self>,
+    ) {
+        self.language_menu = None;
+        self.language = language;
+        i18n::set(language.resolve());
+        let name = language.name();
+        self.notice = Some(match self.language_settings_path.as_deref() {
+            Some(path) => match i18n::save(path, language) {
+                Ok(()) => {
+                    (i18n::text!("Language: {}. Saved.", name), Status::Success)
+                }
+                Err(error) => (
+                    i18n::text!(
+                        "Language: {}. It could not be saved: {}",
+                        name,
+                        error
+                    ),
+                    Status::Warning,
+                ),
+            },
+            None => (
+                i18n::text!(
+                    "Language: {}. No settings directory to save it in",
+                    name
+                ),
+                Status::Warning,
+            ),
+        });
+        cx.notify();
+    }
+
+    /// Open the language menu on the current choice, or close it.
+    pub fn toggle_language_menu(&mut self, cx: &mut Context<'_, Self>) {
+        use crate::i18n::Language;
+        self.language_menu = if self.language_menu.is_some() {
+            None
+        } else {
+            Some(
+                Language::ALL
+                    .iter()
+                    .position(|&language| language == self.language)
+                    .unwrap_or(0),
+            )
+        };
+        cx.notify();
+    }
+
+    /// Keys while the language menu is open, as the Power Efficiency menu
+    /// takes them.
+    fn on_language_key(
+        &mut self,
+        key: &str,
+        cx: &mut Context<'_, Self>,
+    ) -> bool {
+        use crate::i18n::Language;
+        let Some(highlighted) = self.language_menu else {
+            return false;
+        };
+        let last = Language::ALL.len() - 1;
+        match key {
+            "down" | "j" => {
+                self.language_menu = Some((highlighted + 1).min(last));
+            }
+            "up" | "k" => {
+                self.language_menu = Some(highlighted.saturating_sub(1));
+            }
+            "home" => self.language_menu = Some(0),
+            "end" => self.language_menu = Some(last),
+            "enter" | "space" => {
+                self.set_language(Language::ALL[highlighted], cx);
+            }
+            "escape" => self.language_menu = None,
+            _ => {
+                self.language_menu = None;
                 cx.notify();
                 return false;
             }
@@ -1664,8 +1766,11 @@ impl Disktree {
         };
         if crumbs.is_empty() {
             self.notice = Some((
-                "the scanned root cannot be removed; open a directory first"
-                    .into(),
+                i18n::tr(
+                    "the scanned root cannot be removed; open a directory \
+                     first",
+                )
+                .to_string(),
                 Status::Warning,
             ));
             cx.notify();
@@ -1693,7 +1798,7 @@ impl Disktree {
             && let Some(ancestor) = self.marked_ancestor(&target.path)
         {
             self.notice = Some((
-                format!(
+                i18n::text!(
                     "{} goes with the marked {}; unmark that to keep it",
                     display_path(&target.path, self.home.as_deref()),
                     display_path(&ancestor, self.home.as_deref())
@@ -1720,11 +1825,11 @@ impl Disktree {
             }
             if !inside.is_empty() {
                 self.notice = Some((
-                    format!(
+                    i18n::text!(
                         "{} now covers {} mark{} inside it",
                         display_path(&path, self.home.as_deref()),
                         inside.len(),
-                        if inside.len() == 1 { "" } else { "s" }
+                        (if inside.len() == 1 { "" } else { "s" })
                     ),
                     Status::Neutral,
                 ));
@@ -1874,7 +1979,7 @@ impl Disktree {
                     });
                 }
                 TileKind::Others { count, .. } => labels.push(Label {
-                    text: format!("+{count} more"),
+                    text: i18n::text!("+{} more", count),
                     rect: self.animated_rect(tile.rect),
                     header: None,
                     depth: tile.depth,
@@ -2184,7 +2289,10 @@ impl Disktree {
     pub fn begin_removal(&mut self, cx: &mut Context<'_, Self>) {
         let plan = self.plan();
         if plan.is_empty() {
-            self.notice = Some(("nothing is marked".into(), Status::Warning));
+            self.notice = Some((
+                i18n::tr("nothing is marked").to_string(),
+                Status::Warning,
+            ));
             cx.notify();
             return;
         }
@@ -2192,7 +2300,7 @@ impl Disktree {
         // would stop a permanent delete halfway.
         if self.restarting {
             self.notice = Some((
-                "not while restarting as administrator".into(),
+                i18n::tr("not while restarting as administrator").to_string(),
                 Status::Warning,
             ));
             cx.notify();
@@ -2340,7 +2448,7 @@ impl Disktree {
         };
         if matches.count == 0 {
             self.notice = Some((
-                format!("nothing here matches {}", matches.needle),
+                i18n::text!("nothing here matches {}", matches.needle),
                 Status::Warning,
             ));
             cx.notify();
@@ -2406,7 +2514,7 @@ impl Disktree {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Scan".into()),
+            prompt: Some(i18n::tr("Scan").into()),
         });
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(paths))) = chosen.await else {
@@ -2434,7 +2542,10 @@ impl Disktree {
     pub fn save_delete_list(&mut self, cx: &mut Context<'_, Self>) {
         let plan = self.plan();
         if plan.is_empty() {
-            self.notice = Some(("nothing to save".into(), Status::Warning));
+            self.notice = Some((
+                i18n::tr("nothing to save").to_string(),
+                Status::Warning,
+            ));
             cx.notify();
             return;
         }
@@ -2450,15 +2561,16 @@ impl Disktree {
             };
             let notice = match std::fs::write(&path, list) {
                 Ok(()) => (
-                    format!(
-                        "saved {count} {} to {}",
-                        if count == 1 { "path" } else { "paths" },
+                    i18n::text!(
+                        "saved {} {} to {}",
+                        count,
+                        i18n::tr(if count == 1 { "path" } else { "paths" }),
                         path.display()
                     ),
                     Status::Success,
                 ),
                 Err(error) => (
-                    format!("could not save {}: {error}", path.display()),
+                    i18n::text!("could not save {}: {}", path.display(), error),
                     Status::Error,
                 ),
             };
@@ -2475,7 +2587,10 @@ impl Disktree {
     pub fn copy_agent_prompt(&mut self, cx: &mut Context<'_, Self>) {
         let plan = self.plan();
         if plan.is_empty() {
-            self.notice = Some(("nothing to copy".into(), Status::Warning));
+            self.notice = Some((
+                i18n::tr("nothing to copy").to_string(),
+                Status::Warning,
+            ));
             cx.notify();
             return;
         }
@@ -2487,9 +2602,10 @@ impl Disktree {
         cx.write_to_clipboard(gpui_kit::ClipboardItem::new_string(prompt));
         let count = plan.targets.len();
         self.notice = Some((
-            format!(
-                "copied a prompt for your agent: {count} {}, {}",
-                if count == 1 { "path" } else { "paths" },
+            i18n::text!(
+                "copied a prompt for your agent: {} {}, {}",
+                count,
+                i18n::tr(if count == 1 { "path" } else { "paths" }),
                 disktree_core::size::human_bytes(plan.bytes())
             ),
             Status::Success,
@@ -2507,7 +2623,7 @@ impl Disktree {
         // GPUI's reveal cannot report failure, so check what it can't.
         if std::fs::symlink_metadata(&path).is_err() {
             self.notice = Some((
-                format!(
+                i18n::text!(
                     "{} is no longer on disk",
                     crate::marks::display_path(&path, self.home.as_deref())
                 ),
@@ -2568,6 +2684,9 @@ impl Disktree {
         if self.power_menu.is_some() && self.on_power_key(key, cx) {
             return;
         }
+        if self.language_menu.is_some() && self.on_language_key(key, cx) {
+            return;
+        }
 
         if self.show_help {
             if matches!(key, "escape" | "?" | "/" | "q") {
@@ -2619,7 +2738,7 @@ impl Disktree {
                 {
                     run.cancel();
                     self.notice = Some((
-                        "stopping after the current item".into(),
+                        i18n::tr("stopping after the current item").to_string(),
                         Status::Warning,
                     ));
                     cx.notify();
@@ -2694,8 +2813,11 @@ impl Disktree {
             "c" if !control => {
                 if self.marks.is_empty() {
                     self.notice = Some((
-                        "mark something first: space marks the selected tile"
-                            .into(),
+                        i18n::tr(
+                            "mark something first: space marks the selected \
+                             tile",
+                        )
+                        .to_string(),
                         Status::Warning,
                     ));
                 } else {
@@ -3080,7 +3202,7 @@ impl Disktree {
                 Err(error) => {
                     this.restarting = false;
                     this.notice = Some((
-                        format!("still not an administrator: {error}"),
+                        i18n::text!("still not an administrator: {}", error),
                         Status::Warning,
                     ));
                     cx.notify();

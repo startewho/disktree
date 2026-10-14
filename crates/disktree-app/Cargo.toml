@@ -23,7 +23,10 @@ rustc-hash = { workspace = true }
 tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
+windows-sys = { version = "0.61", features = [
+    "Win32_Globalization",
+    "Win32_System_Console",
+] }
 
 [dev-dependencies]
 # The window harness: it lets the tests draw a real frame and press real keys.
